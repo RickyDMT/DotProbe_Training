@@ -3,7 +3,7 @@ function DotProbe_Training(varargin)
 %pics).
 
 
-global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial
+global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial pahandle
 
 prompt={'SUBJECT ID' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
 defAns={'4444' '' ''};
@@ -83,11 +83,6 @@ end
 %% Fill in rest of pertinent info
 DPT = struct;
 
-
-% trial_types = [ones(length(PICS.in.go),1); repmat(2,length(PICS.in.no),1); repmat(3,length(PICS.in.neut),1)];  %1 = go; 2 = no; 3 = neutral/variable
-% gonogo = [ones(length(PICS.in.go),1); zeros(length(PICS.in.go),1)];                         %1 = go; 0 = nogo;
-% gonogoh20 = BalanceTrials(sum(trial_types==3),1,[0 1]);     %For neutral, go & no go are randomized
-% gonogo = [gonogo; gonogoh20];
 l_r = BalanceTrials(STIM.totes,1,[1 2]);    %Location for probe: 1 = Left, 2 = Right; 1 = stop signal, 0 = no stop signal
 tenper = fix(.1*STIM.totes);
 counterprobe = [ones(tenper,1); zeros((STIM.totes - tenper),1)];   %Ten percent of trials, have probe appear on opposite side of 
@@ -200,17 +195,18 @@ STIM.probe(1,1:4) = [wRect(3)/4 - dpr,wRect(4)/2 - dpr, wRect(3)/4 + dpr, wRect(
 STIM.probe(2,1:4) = [wRect(3)*(3/4) - dpr,wRect(4)/2 - dpr, wRect(3)*(3/4) + dpr, wRect(4)/2 + dpr];    %R probe rect
 
 %% Initial screen
-DrawFormattedText(w,'The Dot Probe Task is about to begin.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
+DrawFormattedText(w,'Welcome to the Dot-Probe Task.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
 Screen('Flip',w);
 KbWait();
 Screen('Flip',w);
 WaitSecs(1);
 
 %% Instructions
-instruct = sprintf('You will see pictures on the left & right side of the screen, followed by a dot under one of the images.\n\nPress the "%s" if the dot is on the left side of the screen or "%s" if the dot is on right side of the screen\n\nBUT if you hear a tone when the dot appears, DO NOT PRESS the button.\n\nPress any key to continue.',KbName(KEY.left),KbName(KEY.right));
+instruct = sprintf('You will see pictures on the left & right side of the screen, followed by a dot on the left or right side of the screen.\n\nPress the "%s" if the dot is on the left side of the screen or "%s" if the dot is on right side of the screen\n\nBUT if you hear a tone when the dot appears, DO NOT PRESS the button.\n\nPress any key to continue.',KbName(KEY.left),KbName(KEY.right));
 DrawFormattedText(w,instruct,'center','center',COLORS.WHITE,60,[],[],1.5);
 Screen('Flip',w);
 KbWait();
+
 
 %% Practice
 
@@ -261,14 +257,14 @@ if prac == 1;
         end
     end
     
-    %Displat probe on Right to show use of "right" key.
+    %Display probe on Right to show use of "right" key.
     Screen('DrawTexture',w,practpic_lo,[],STIM.img(1,:));
     Screen('DrawTexture',w,practpic_hi,[],STIM.img(2,:));
     Screen('Flip',w);
     WaitSecs(.5);
     Screen('FillOval',w,COLORS.WHITE,STIM.probe(2,:));   
     pract_text = sprintf('And in this trial you would press "%s" because the dot is on the right.',KbName(KEY.right));
-    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],[1.2],[],STIM.img(1,:));
+    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],1.2,[],STIM.img(1,:));
     pract_textc = sprintf('Press "%s" now.',KbName(KEY.right));
     DrawFormattedText(w,pract_textc,'center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
@@ -325,6 +321,7 @@ for block = 1:STIM.blocks;
     KbWait();
     
     old = Screen('TextSize',w,80);
+    PsychPortAudio('FillBuffer', pahandle, wave);
     for trial = 1:STIM.trials;
         [DPT.data.rt(trial,block), DPT.data.correct(trial,block)] = DoDotProbeTraining(trial,block);
         %Wait 500 ms
@@ -338,7 +335,8 @@ for block = 1:STIM.blocks;
     
     block_text = sprintf('Block %d Results',block);
     
-    c = DPT.data.correct(:,block) == 1;                                 %Find correct trials
+    c = (DPT.data.correct(:,block) == 1);                                 %Find correct trials
+    s = (DPT.var.signal(:,block) ==0);                                    %Find "go" trials
     corr_count = sprintf('Number Correct:\t%d of %d',length(find(c)),STIM.trials);  %Number correct = length of find(c)
     corr_per = length(find(c))*100/length(c);                           %Percent correct = length find(c) / total trials
     corr_pert = sprintf('Percent Correct:\t%4.1f%%',corr_per);          %sprintf that data to string.
@@ -348,25 +346,24 @@ for block = 1:STIM.blocks;
         %Display "N/A" for this block's RT.
         ibt_rt = sprintf('Average RT:\tUnable to calculate RT due to 0 correct trials.');
     else
-%         block_go = DPT.var.GoNoGo(:,block) == 1;                        %Find go trials
         blockrts = DPT.data.rt(:,block);                                %Pull all RT data
-        blockrts = blockrts(c);                                         %Resample RT only if correct.
+        blockrts = blockrts(c & s);                                     %Resample RT only if correct & not a no-go trial.
         avg_rt_block = fix(mean(blockrts)*1000);                        %Display avg rt in milliseconds.
         ibt_rt = sprintf('Average RT:\t\t\t%3d milliseconds',avg_rt_block);
     end
     
     ibt_xdim = wRect(3)/10;
     ibt_ydim = wRect(4)/4;
-%    old = Screen('TextSize',w,25);
-    DrawFormattedText(w,block_text,'center',wRect(4)/10,COLORS.WHITE);   %Next lines display all the data.
+    
+    %Next lines display all the data.
+    DrawFormattedText(w,block_text,'center',wRect(4)/10,COLORS.WHITE);
     DrawFormattedText(w,corr_count,ibt_xdim,ibt_ydim,COLORS.WHITE);
     DrawFormattedText(w,corr_pert,ibt_xdim,ibt_ydim+30,COLORS.WHITE);    
     DrawFormattedText(w,ibt_rt,ibt_xdim,ibt_ydim+60,COLORS.WHITE);
-    %Screen('Flip',w);
     
     if block > 1
         % Also display rest of block data summary
-        tot_trial = block * 32;
+        tot_trial = block * STIM.trials;
         totes_c = DPT.data.correct == 1;
         corr_count_totes = sprintf('Number Correct: \t%d of %d',length(find(totes_c)),tot_trial);
         corr_per_totes = length(find(totes_c))*100/tot_trial;
@@ -378,7 +375,6 @@ for block = 1:STIM.blocks;
             %Stop task & alert experimenter?
             tot_rt = sprintf('Block %d Average RT:\tUnable to calculate RT due to 0 correct trials.',block);
         else
-%             tot_go = DPT.var.GoNoGo == 1;
             totrts = DPT.data.rt;
             totrts = totrts(totes_c);
             avg_rt_tote = fix(mean(totrts)*1000);     %Display in units of milliseconds.
@@ -390,9 +386,12 @@ for block = 1:STIM.blocks;
         DrawFormattedText(w,corr_pert_totes,ibt_xdim,ibt_ydim+180,COLORS.WHITE);
         DrawFormattedText(w,tot_rt,ibt_xdim,ibt_ydim+210,COLORS.WHITE);
         
+        %Test if getting better or worse; display feedback?
     end
-Screen('Flip',w);
-KbWait();
+    
+    DrawFormattedText(w,'Press any key to continue','center',wRect(4)-100,COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait();
     
 end
 
@@ -418,9 +417,9 @@ catch
     error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
 end
 
-DrawFormattedText(w,'Thank you for participating\n in this part of the study!','center','center',COLORS.WHITE);
+DrawFormattedText(w,'Thank you for participating\n in the Dot Probe Task!','center','center',COLORS.WHITE);
 Screen('Flip', w);
-KbWait();
+WaitSecs(10);
 
 %Clear everything except data structure
 clearvar -except DPT
@@ -432,9 +431,10 @@ end
 %%
 function [trial_rt, correct] = DoDotProbeTraining(trial,block,varargin)
 
-global w STIM PICS COLORS DPT KEY
+global w STIM PICS COLORS DPT KEY pahandle
 
-lr = DPT.var.lr(trial,block);           %Bring in L/R location; 1 = L, 2 = R
+correct = -999;                         %Set/reset "correct" to -999 at start of every trial
+lr = DPT.var.lr(trial,block);           %Bring in L/R location for probe; 1 = L, 2 = R
 
 if lr == 1;                             %set up response keys for probe (& not picture)
     corr_respkey = KEY.left;
@@ -445,7 +445,12 @@ else
     incorr_respkey = KEY.left;
     notlr = 1;
 end
-    
+
+%Display fixation for 500 ms
+DrawFormattedText(w,'+','center','center',COLORS.WHITE);
+Screen('Flip',w);
+WaitSecs(.5);                              %Jitter this for fMRI purposes.
+
 if DPT.var.cprobe(trial,block)== 1;
     %If this is a counter-probe trial, draw hi cal food where probe will appear.
     Screen('DrawTexture',w,PICS.out(trial).texture_lo,[],STIM.img(notlr,:));    
@@ -457,51 +462,57 @@ else
 end
 
     Screen('Flip',w);
-    WaitSecs(.5);                   %XXX: UPDATE THIS TO PROPER DISPLAY TIME. 
+    WaitSecs(.5);                   %Display pics for 500 ms before dot probe 
     
     Screen('FillOval',w,COLORS.WHITE,STIM.probe(lr,:));
-    if DPT.var.signal == 1;
-        % XXX: Play signal here or after flip?
+    RT_start = Screen('Flip',w);
+    if DPT.var.signal(trial, block) == 1;
+        PsychPortAudio('Start', pahandle, 1);
         % XXX: Delay between probe & signal onset?
     end
-    correct = -999; 
-    RT_start = Screen('Flip',w);
     telap = GetSecs() - RT_start;
 
 
     while telap <= (STIM.trialdur - .500); %XXX: What is full trial duration?
         telap = GetSecs() - RT_start;
         [Down, ~, Code] = KbCheck();            %wait for key to be pressed
-        if Down == 1 && find(Code) == corr_respkey
-            trial_rt = GetSecs() - RT_start;
+        if Down == 1 
+            if find(Code) == corr_respkey;
+                trial_rt = GetSecs() - RT_start;
             
-            if DPT.var.signal == 1;        %This is a no-go signal round. Throw incorrect X.
+                if DPT.var.signal(trial,block) == 1;        %This is a no-go signal round. Throw incorrect X.
+                    DrawFormattedText(w,'X','center','center',COLORS.RED);
+                    Screen('Flip',w);
+                    correct = 0;
+                    WaitSecs(.5);
+
+                else                                        %If no signal + Press, move on to next round.
+                    Screen('Flip',w);                        %'Flip' in order to clear buffer; next flip (in main script) flips to black screen.
+                    correct = 1;
+                
+                end
+            break    
+            
+            elseif find(Code) == incorr_respkey %The wrong key was pressed. Throw X regardless of Go/No Go
+                trial_rt = GetSecs() - RT_start;
+                
                 DrawFormattedText(w,'X','center','center',COLORS.RED);
                 Screen('Flip',w);
                 correct = 0;
                 WaitSecs(.5);
-            else                                        %If no signal + Press, move on to next round.
-                Screen('Flip',w);                       %'Flip' in order to clear buffer; next flip (in main script) flips to black screen.
-                correct = 1;
+                break
+            else
+                FlushEvents();
             end
-            break
-            
-        elseif Down == 1 && find(Code) == incorr_respkey %The wrong key was pressed. Throw X regardless of Go/No Go
-            trial_rt = GetSecs() - RT_start;
-            
-            DrawFormattedText(w,'X','center','center',COLORS.RED);
-            Screen('Flip',w);
-            correct = 0;
-            WaitSecs(.5);
-            break
         end
+        
         
     end
     
     if correct == -999;
 %     Screen('DrawTexture',w,PICS.out(trial).texture,[],STIM.img(lr,:));
         
-        if DPT.var.signal(trial,block) == 0;    %NoGo Trial + Correct no press. Do nothing, move to inter-trial
+        if DPT.var.signal(trial,block) == 1;    %NoGo Trial + Correct no press. Do nothing, move to inter-trial
             Screen('Flip',w);                   %'Flip' in order to clear buffer; next flip (in main script) flips to black screen.
             correct = 1;
         else                                    %Incorrect no press. Show "X" for .5 sec.
