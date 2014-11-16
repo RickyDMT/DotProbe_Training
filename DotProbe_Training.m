@@ -54,7 +54,7 @@ STIM.trialdur = 1.250;
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
 
-[imgdir,~,~] = fileparts(which('Lawrence_GoNoGo.m'));
+[imgdir,~,~] = fileparts(which('DotProbe_Training.m'));
 
 try
     cd([imgdir filesep 'IMAGES'])
@@ -124,9 +124,22 @@ end
 
 commandwindow;
 
+%% Sound stuff.
+wave=sin(1:0.25:1000);
+freq=22254;  % change this to change freq of tone
+nrchannels = size(wave,1);
+% Default to auto-selected default output device:
+deviceid = -1;
+% Request latency mode 2, which used to be the best one in our measurement:
+reqlatencyclass = 2; % class 2 empirically the best, 3 & 4 == 2
+% Initialize driver, request low-latency preinit:
+InitializePsychSound(1);
+% Open audio device for low-latency output:
+pahandle = PsychPortAudio('Open', deviceid, [], reqlatencyclass, freq, nrchannels);
+
 %%
 %change this to 0 to fill whole screen
-DEBUG=1;
+DEBUG=0;
 
 %set up the screen and dimensions
 
@@ -164,12 +177,12 @@ end
 %you can set the font sizes and styles here
 Screen('TextFont', w, 'Arial');
 %Screen('TextStyle', w, 1);
-Screen('TextSize',w,35);
+Screen('TextSize',w,30);
 
 KbName('UnifyKeyNames');
 
 %% Set frame size;
-border = 20;
+%border = 20;
 dpr = 10; %radius of dot probe
 
 % STIM.framerect = [border; border; wRect(3)-border; wRect(4)-border];
@@ -181,21 +194,21 @@ dpr = 10; %radius of dot probe
 %whose side=1/2 the vertical size of the screen & is vertically centered.
 %The square is then placed 1/10th the width of the screen from the L & R
 %edge.
-STIM.img(1,1:4) = [wRect(3)/10,wRect(4)/4,wRect(3)/10+wRect(4)/2,wRect(4)*(3/4)];               %L - image rect
-STIM.img(2,1:4) = [(wRect(3)*(9/10))-wRect(4)/2,wRect(4)/4,wRect(3)*(9/10),wRect(4)*(3/4)];     %R - image rect
+STIM.img(1,1:4) = [wRect(3)/15,wRect(4)/4,wRect(3)/15+wRect(4)/2,wRect(4)*(3/4)];               %L - image rect
+STIM.img(2,1:4) = [(wRect(3)*(14/15))-wRect(4)/2,wRect(4)/4,wRect(3)*(14/15),wRect(4)*(3/4)];     %R - image rect
 STIM.probe(1,1:4) = [wRect(3)/4 - dpr,wRect(4)/2 - dpr, wRect(3)/4 + dpr, wRect(4)/2 + dpr];    %L probe rect
 STIM.probe(2,1:4) = [wRect(3)*(3/4) - dpr,wRect(4)/2 - dpr, wRect(3)*(3/4) + dpr, wRect(4)/2 + dpr];    %R probe rect
 
 %% Initial screen
-DrawFormattedText(w,'The Dot Probe Task is about to begin.\nPress any key to continue.','center','center',COLORS.WHITE);
+DrawFormattedText(w,'The Dot Probe Task is about to begin.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
 Screen('Flip',w);
 KbWait();
 Screen('Flip',w);
 WaitSecs(1);
 
 %% Instructions
-instruct = sprintf('You will see pictures on the left & right side of the screen, followed by a dot.\n\nPress the "%s" if the dot is on the left side of the screen or "%s" if the dot is on right side of the screen\nBUT if you hear a tone when the dot appears, DO NOT PRESS the button.\n\nPress any key to continue.',KbName(KEY.left),KbName(KEY.right));
-DrawFormattedText(w,instruct,'center','center',COLORS.WHITE,75);
+instruct = sprintf('You will see pictures on the left & right side of the screen, followed by a dot under one of the images.\n\nPress the "%s" if the dot is on the left side of the screen or "%s" if the dot is on right side of the screen\n\nBUT if you hear a tone when the dot appears, DO NOT PRESS the button.\n\nPress any key to continue.',KbName(KEY.left),KbName(KEY.right));
+DrawFormattedText(w,instruct,'center','center',COLORS.WHITE,60,[],[],1.5);
 Screen('Flip',w);
 KbWait();
 
@@ -218,20 +231,22 @@ if prac == 1;
 %     Screen('FrameRect',w,COLORS.rect,STIM.framerect,6);
 %     Screen('DrawTexture',w,practpic,[],STIM.img(1,:));
 % Basic Instructions:
-    DrawFormattedText(w,'You will first see two images followed by a dot on either the left or right side of the screen.','center','center',COLORS.WHITE);
-    Screen('Flip',w);
-    WaitSecs(5);
-
-    %Do this practice trial
-    Screen('DrawTexture',w,practpic_lo,STIM.img(1,:));
-    Screen('DrawTexture',w,practpic_hi,STIM.img(2,:));
+    DrawFormattedText(w,'You will first see two images on the left & right side of the screen, followed by a dot under one of the images.\n\n Press any key to continue.','center','center',COLORS.WHITE,60,[],[],1.5);
     Screen('Flip',w);
     WaitSecs(.5);
-    Screen('FillOval',w,COLORS.WHITE,STIM.probe(1,:));
-    Screen('Flip',w,[],1);
+    KbWait();
+        
+    %Do this practice trial
+    Screen('DrawTexture',w,practpic_lo,[],STIM.img(1,:));
+    Screen('DrawTexture',w,practpic_hi,[],STIM.img(2,:));
+    Screen('Flip',w);
+    WaitSecs(.5);
     
-    pract_text = sprintf('In this trial you would press "%s" because the dot is on the left side.\n\nPress "%s" now.',KbName(KEY.left),KbName(KEY.left));
-    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],[],[],STIM.img(2,:));
+    Screen('FillOval',w,COLORS.WHITE,STIM.probe(1,:));
+    pract_text = sprintf('In this trial you would press "%s" because the dot is on the left side.',KbName(KEY.left));
+    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],1.2,[],STIM.img(2,:));
+    pract_textc = sprintf('Press "%s" now.',KbName(KEY.left));
+    DrawFormattedText(w,pract_textc,'center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
     
     commandwindow;
@@ -247,15 +262,15 @@ if prac == 1;
     end
     
     %Displat probe on Right to show use of "right" key.
-    Screen('DrawTexture',w,practpic_lo,STIM.img(1,:));
-    Screen('DrawTexture',w,practpic_hi,STIM.img(2,:));
+    Screen('DrawTexture',w,practpic_lo,[],STIM.img(1,:));
+    Screen('DrawTexture',w,practpic_hi,[],STIM.img(2,:));
     Screen('Flip',w);
     WaitSecs(.5);
-    Screen('FillOval',w,COLORS.WHITE,STIM.probe(1,:));
-    Screen('Flip',w,[],1);
-    
-    pract_text = sprintf('And in this trial you would press "%s" because the dot is on the right.\n\nPress "%s" now.',KbName(KEY.right),KbName(KEY.right));
-    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],[],[],STIM.img(1,:));
+    Screen('FillOval',w,COLORS.WHITE,STIM.probe(2,:));   
+    pract_text = sprintf('And in this trial you would press "%s" because the dot is on the right.',KbName(KEY.right));
+    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],[1.2],[],STIM.img(1,:));
+    pract_textc = sprintf('Press "%s" now.',KbName(KEY.right));
+    DrawFormattedText(w,pract_textc,'center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
     while 1
         FlushEvents();
@@ -269,17 +284,31 @@ if prac == 1;
     Screen('Flip',w);
     WaitSecs(1);
     
-    %Now do "no go" signal trial.
+    %Now do "no go" signal trial. 
+    PsychPortAudio('FillBuffer', pahandle, wave);
+    DrawFormattedText(w,'In some trials you will hear a short tone (a beep).','center','center',COLORS.WHITE,[],[],[],1.2);
+    DrawFormattedText(w,'Press any key to hear the tone.','center',wRect(4)-200,COLORS.WHITE);
+    Screen('Flip',w);
+    KbWait();
+    Screen('DrawTexture',w,practpic_lo,[],STIM.img(1,:));
+    Screen('DrawTexture',w,practpic_hi,[],STIM.img(2,:));
+    Screen('Flip',w);
+    WaitSecs(.5);
     Screen('FillOval',w,COLORS.WHITE,STIM.probe(1,:));
-    % PLAY TONE HERE!
-    pract_text = sprintf('But if you hear a tone like this, do not press either key! Just wait & the next round will begin\n\nPress any key to continue.');
-    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,25,[],[],[],[],STIM.img(2,:));
+    
+    PsychPortAudio('Start', pahandle, 1);
+    %WaitSecs(.25);
+    %PsychPortAudio('Stop', pahandle);
+    pract_text = sprintf('If you hear a tone like this, do not press either key! Just wait & the next round will begin.');
+    DrawFormattedText(w,pract_text,'center','center',COLORS.WHITE,35,[],[],1.2,[],STIM.img(2,:));
+    Screen('Flip',w,[],1);
+    WaitSecs(2);
+    DrawFormattedText(w,'Press any key to continue.','center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
     KbWait();
     WaitSecs(2);
-    
-end
-
+end 
+  
 %% Task
 DrawFormattedText(w,'The Dot Probe Task is about to begin.\n\n\nPress any key to begin the task.','center','center',COLORS.WHITE);
 Screen('Flip',w);
@@ -435,9 +464,10 @@ end
         % XXX: Play signal here or after flip?
         % XXX: Delay between probe & signal onset?
     end
+    correct = -999; 
     RT_start = Screen('Flip',w);
     telap = GetSecs() - RT_start;
-    correct = -999; 
+
 
     while telap <= (STIM.trialdur - .500); %XXX: What is full trial duration?
         telap = GetSecs() - RT_start;
