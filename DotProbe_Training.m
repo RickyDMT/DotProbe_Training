@@ -557,20 +557,20 @@ global PICS DPT w STIM
 end
 
 %%
-function DrawDashRect(varargin)
-
-global STIM w COLORS 
-
-xl = STIM.framerect(1);
-xr = STIM.framerect(3)+10;
-yt = STIM.framerect(2);
-yb = STIM.framerect(4)+10;
-
-Screen('DrawLine',w,COLORS.WHITE,xl,yt,xl,yb,6);
-Screen('DrawLine',w,COLORS.WHITE,xl,yb,xr,yb,6);
-Screen('DrawLine',w,COLORS.WHITE,xr,yt,xr,yb,6);
-Screen('DrawLine',w,COLORS.WHITE,xl,yt,xr,yt,6);
-%Screen('Flip',w);
-
-end
+% function DrawDashRect(varargin)
+% 
+% global STIM w COLORS 
+% 
+% xl = STIM.framerect(1);
+% xr = STIM.framerect(3)+10;
+% yt = STIM.framerect(2);
+% yb = STIM.framerect(4)+10;
+% 
+% Screen('DrawLine',w,COLORS.WHITE,xl,yt,xl,yb,6);
+% Screen('DrawLine',w,COLORS.WHITE,xl,yb,xr,yb,6);
+% Screen('DrawLine',w,COLORS.WHITE,xr,yt,xr,yb,6);
+% Screen('DrawLine',w,COLORS.WHITE,xl,yt,xr,yt,6);
+% %Screen('Flip',w);
+% 
+% end
 
