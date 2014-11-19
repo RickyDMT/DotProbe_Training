@@ -411,7 +411,7 @@ end
 
 try
 
-save([savedir 'GNG_' num2str(ID) '_' num2str(SESS) '.mat'],'GNG');
+save([savedir 'DPT_' num2str(ID) '_' num2str(SESS) '.mat'],'DPT');
 
 catch
     error('Although data was (most likely) collected, file was not properly saved. 1. Right click on variable in right-hand side of screen. 2. Save as SST_#_#.mat where first # is participant ID and second is session #. If you are still unsure what to do, contact your boss, Kim Martin, or Erik Knight (elk@uoregon.edu).')
