@@ -1,19 +1,20 @@
 function DotProbe_Training(varargin)
 %NEEDS UPDATE: Real pics, real trial & block number (which is dependent on
 %pics).
+% 12/4/14: Rated pics added. Now needs 
 
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial pahandle
 
-prompt={'SUBJECT ID' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
-defAns={'4444' '' ''};
+prompt={'SUBJECT ID' 'Condition' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
+defAns={'4444' '' '' ''};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
 ID=str2double(answer{1});
-% COND = str2double(answer{2});
-SESS = str2double(answer{2});
-prac = str2double(answer{3});
+COND = str2double(answer{2});
+SESS = str2double(answer{3});
+prac = str2double(answer{4});
 
 %Make sure input data makes sense.
 % try
@@ -46,32 +47,57 @@ COLORS.rect = COLORS.GREEN;
 
 STIM = struct;
 STIM.blocks = 8;
-STIM.trials = 10;
+STIM.trials = 40;
 STIM.totes = STIM.blocks*STIM.trials;
 STIM.trialdur = 1.250;
 
 
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
-
-[imgdir,~,~] = fileparts(which('DotProbe_Training.m'));
+[imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
+picratefolder = fullfile(imgdir,'SavingsRatings');
 
 try
-    cd([imgdir filesep 'IMAGES'])
+    cd(picratefolder)
 catch
-    error('Could not find and/or open the IMAGES folder.');
+    error('Could not find and/or open the .');
 end
 
+filen = sprintf('PicRate_%03d.mat',ID);
+try
+    p = open(filen);
+catch
+    warning('Could not find and/or open the rating file.');
+    commandwindow;
+    randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
+    if randopics == 1
+        p = struct;
+        p.PicRating.go = dir('Healthy*');
+        p.PicRating.no = dir('Unhealthy*');
+        %XXX: ADD RANDOMIZATION SO THAT SAME 80 IMAGES AREN'T CHOSEN
+        %EVERYTIME
+    else
+        error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
+    end
+    
+end
+
+cd(imgdir);
+ 
+
+
 PICS =struct;
-% if COND == 1;                   %Condtion = 1 is food. 
-    PICS.in.lo = dir('good*.jpg');
-    PICS.in.hi = dir('*bad*.jpg');
+ if COND == 1;                   %Condtion = 1 is food. 
+%     PICS.in.lo = dir('Healthy*');
+%     PICS.in.hi = dir('Unhealthy*');
+    PICS.in.lo = struct('name',{p.PicRating.go(1:80).name}');
+    PICS.in.hi = struct('name',{p.PicRating.no(1:80).name}');
 %     PICS.in.neut = dir('*water*.jpg');
-% elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
-%     PICS.in.hi = dir('*bird*.jpg');
-%     PICS.in.hi = dir('*flowers*.jpg');
+ elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
+     PICS.in.lo = dir('Bird*');
+     PICS.in.hi = dir('Flower*');
 %     PICS.in.neut = dir('*mam*.jpg');
-% end
+ end
 % picsfields = fieldnames(PICS.in);
 
 %Check if pictures are present. If not, throw error.
@@ -91,7 +117,7 @@ signal = [ones((tenper/2),1); zeros((STIM.totes - tenper/2),1)];   %Five percent
 
 %Make long list of randomized #s to represent each pic
 % piclist = [randperm(length(PICS.in.lo)); randperm(length(PICS.in.hi))]';
-piclist = [randperm((STIM.totes)); randperm((STIM.totes))]';    %For testing purposes.
+piclist = [repmat(randperm(length(PICS.in.hi))',4,1); randperm((STIM.totes))]';    %For testing purposes.
 
 %Concatenate these into a long list of trial types.
 trial_types = [l_r counterprobe signal piclist];
