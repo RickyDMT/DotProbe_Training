@@ -1,7 +1,7 @@
 function DotProbe_Training(varargin)
 %NEEDS UPDATE: Real pics, real trial & block number (which is dependent on
 %pics).
-% 12/4/14: Rated pics added. Now needs 
+% 12/4/14: Rated pics added. Now needs to work...
 
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial pahandle
@@ -109,18 +109,28 @@ end
 %% Fill in rest of pertinent info
 DPT = struct;
 
-l_r = BalanceTrials(STIM.totes,1,[1 2]);    %Location for probe: 1 = Left, 2 = Right; 1 = stop signal, 0 = no stop signal
+% l_r = BalanceTrials(STIM.totes,0,[1 2]);    %Location for probe: 1 = Left, 2 = Right; 1 = stop signal, 0 = no stop signal
+% Grant instructions say pics should appear twice on L & twice on right, so
+    % this does that. The order is shuffled/randomized later, thus this
+    % non-random order is fine. Pics are brought in randomly as well, thus
+    % session-by-session, subject-by-subject, the L & R and order will all
+    % vary appropriately.
+l_r = [ones((STIM.totes/2),1); repmat(2,(STIM.totes/2),1)];
 tenper = fix(.1*STIM.totes);
 counterprobe = [ones(tenper,1); zeros((STIM.totes - tenper),1)];   %Ten percent of trials, have probe appear on opposite side of 
 signal = [ones((tenper/2),1); zeros((STIM.totes - tenper/2),1)];   %Five percent of trials, when probe appears on opposite side, give stop signal.
-
+%But these need to be scattered randomly throughout; new l_r order requires
+%these to be shuffled prior to full study shuffle.
+countersignal = [counterprobe signal];
+countersignal = countersignal(randperm(size(countersignal,1)),:);
 
 %Make long list of randomized #s to represent each pic
-% piclist = [randperm(length(PICS.in.lo)); randperm(length(PICS.in.hi))]';
-piclist = [repmat(randperm(length(PICS.in.hi))',4,1); randperm((STIM.totes))]';    %For testing purposes.
+piclist = [repmat(randperm(length(PICS.in.lo))',4,1) repmat(randperm(length(PICS.in.hi))',4,1)];
+% piclist = [repmat(randperm(length(PICS.in.hi))',4,1) randperm((STIM.totes))'];    %For testing purposes.
 
 %Concatenate these into a long list of trial types.
-trial_types = [l_r counterprobe signal piclist];
+% trial_types = [l_r counterprobe signal piclist];
+trial_types = [l_r countersignal piclist];
 shuffled = trial_types(randperm(size(trial_types,1)),:);
 
 for g = 1:STIM.blocks;
@@ -223,7 +233,7 @@ STIM.probe(2,1:4) = [wRect(3)*(3/4) - dpr,wRect(4)/2 - dpr, wRect(3)*(3/4) + dpr
 %% Initial screen
 DrawFormattedText(w,'Welcome to the Dot-Probe Task.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
 Screen('Flip',w);
-KbWait();
+% KbWait();
 Screen('Flip',w);
 WaitSecs(1);
 
