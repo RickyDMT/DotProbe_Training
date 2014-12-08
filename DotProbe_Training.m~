@@ -170,7 +170,7 @@ pahandle = PsychPortAudio('Open', deviceid, [], reqlatencyclass, freq, nrchannel
 
 %%
 %change this to 0 to fill whole screen
-DEBUG=0;
+DEBUG=1;
 
 %set up the screen and dimensions
 
