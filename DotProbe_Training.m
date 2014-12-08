@@ -513,7 +513,7 @@ end
         telap = GetSecs() - RT_start;
         [Down, ~, Code] = KbCheck();            %wait for key to be pressed
         if Down == 1 
-            if find(Code) == corr_respkey;
+            if any(find(Code) == corr_respkey);
                 trial_rt = GetSecs() - RT_start;
             
                 if DPT.var.signal(trial,block) == 1;        %This is a no-go signal round. Throw incorrect X.
@@ -529,7 +529,7 @@ end
                 end
             break    
             
-            elseif find(Code) == incorr_respkey %The wrong key was pressed. Throw X regardless of Go/No Go
+            elseif any(find(Code) == incorr_respkey) %The wrong key was pressed. Throw X regardless of Go/No Go
                 trial_rt = GetSecs() - RT_start;
                 
                 DrawFormattedText(w,'X','center','center',COLORS.RED);
