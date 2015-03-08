@@ -1,13 +1,11 @@
 function DotProbe_Training(varargin)
-%NEEDS UPDATE: Real pics, real trial & block number (which is dependent on
-%pics).
-% 12/4/14: Rated pics added. Now needs to work...
+
 
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial pahandle
 
 prompt={'SUBJECT ID' 'Condition' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
-defAns={'4444' '' '' ''};
+defAns={'4444' '1' '1' '0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
 
@@ -55,7 +53,8 @@ STIM.trialdur = 1.250;
 %% Find & load in pics
 %find the image directory by figuring out where the .m is kept
 [imgdir,~,~] = fileparts(which('MasterPics_PlaceHolder.m'));
-picratefolder = fullfile(imgdir,'SavingsRatings');
+picratefolder = fullfile(imgdir,'Saved_Pic_Ratings');
+randopics = 0;
 
 try
     cd(picratefolder)
@@ -63,7 +62,7 @@ catch
     error('Could not find and/or open the .');
 end
 
-filen = sprintf('PicRate_%03d.mat',ID);
+filen = sprintf('PicRatings_CC_%d-1.mat',ID);
 try
     p = open(filen);
 catch
@@ -72,10 +71,8 @@ catch
     randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
     if randopics == 1
         p = struct;
-        p.PicRating.go = dir('Healthy*');
-        p.PicRating.no = dir('Unhealthy*');
-        %XXX: ADD RANDOMIZATION SO THAT SAME 80 IMAGES AREN'T CHOSEN
-        %EVERYTIME
+        p.PicRating.H = dir('Healthy*');
+        p.PicRating.U = dir('Unhealthy*');
     else
         error('Task cannot proceed without images. Contact Erik (elk@uoregon.edu) if you have continued problems.')
     end
@@ -87,18 +84,29 @@ cd(imgdir);
 
 
 PICS =struct;
- if COND == 1;                   %Condtion = 1 is food. 
-%     PICS.in.lo = dir('Healthy*');
-%     PICS.in.hi = dir('Unhealthy*');
-    PICS.in.lo = struct('name',{p.PicRating.go(1:80).name}');
-    PICS.in.hi = struct('name',{p.PicRating.no(1:80).name}');
-%     PICS.in.neut = dir('*water*.jpg');
- elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
-     PICS.in.lo = dir('Bird*');
-     PICS.in.hi = dir('Flower*');
-%     PICS.in.neut = dir('*mam*.jpg');
- end
-% picsfields = fieldnames(PICS.in);
+if COND == 1;                   %Condtion = 1 is food. 
+    if randopics ==1;
+        %randomly select 60 pictures.
+        PICS.in.lo = struct('name',{p.PicRating.H(randperm(length(p.PicRating.H),60)).name}');
+        PICS.in.hi = struct('name',{p.PicRating.U(randperm(length(p.PicRating.H),60)).name}');
+
+    else
+
+    %Choose the pre-selected random 60 from top 80 most appetizing pics)
+    PICS.in.lo = struct('name',{p.PicRating.H([p.PicRating.H.chosen]==1).name}');
+    PICS.in.hi = struct('name',{p.PicRating.U([p.PicRating.U.chosen]==1).name}');
+
+    end
+    
+elseif COND == 2;               %Condition = 2 is not food (birds/flowers)
+%     PICS.in.go = dir('Bird*');
+%     PICS.in.no = dir('Flowers*');
+    go_pics = dir('Bird*');
+    no_pics = dir('Flower*');
+    PICS.in.lo = struct('name',{go_pics(randperm(length(go_pics),60)).name});
+    PICS.in.hi = struct('name',{no_pics(randperm(length(no_pics),60)).name});
+
+end
 
 %Check if pictures are present. If not, throw error.
 %Could be updated to search computer to look for pics...
@@ -109,7 +117,7 @@ end
 %% Fill in rest of pertinent info
 DPT = struct;
 
-% l_r = BalanceTrials(STIM.totes,0,[1 2]);    %Location for probe: 1 = Left, 2 = Right; 1 = stop signal, 0 = no stop signal
+% l_r = BalanceTrials(STIM.totes,0,[1 2]);    %Location for Healthy food/probe: 1 = Left, 2 = Right; 1 = stop signal, 0 = no stop signal
 % Grant instructions say pics should appear twice on L & twice on right, so
     % this does that. The order is shuffled/randomized later, thus this
     % non-random order is fine. Pics are brought in randomly as well, thus
@@ -117,7 +125,7 @@ DPT = struct;
     % vary appropriately.
 l_r = [ones((STIM.totes/2),1); repmat(2,(STIM.totes/2),1)];
 tenper = fix(.1*STIM.totes);
-counterprobe = [ones(tenper,1); zeros((STIM.totes - tenper),1)];   %Ten percent of trials, have probe appear on opposite side of 
+counterprobe = [ones(tenper,1); zeros((STIM.totes - tenper),1)];   %Ten percent of trials, have probe appear on opposite side 
 signal = [ones((tenper/2),1); zeros((STIM.totes - tenper/2),1)];   %Five percent of trials, when probe appears on opposite side, give stop signal.
 %But these need to be scattered randomly throughout; new l_r order requires
 %these to be shuffled prior to full study shuffle.
@@ -125,29 +133,40 @@ countersignal = [counterprobe signal];
 countersignal = countersignal(randperm(size(countersignal,1)),:);
 
 %Make long list of randomized #s to represent each pic
-piclist = [repmat(randperm(length(PICS.in.lo))',4,1) repmat(randperm(length(PICS.in.hi))',4,1)];
-% piclist = [repmat(randperm(length(PICS.in.hi))',4,1) randperm((STIM.totes))'];    %For testing purposes.
+%But first figure out how many pics you need...assuming you are selecting
+%60 pics.
+its_pics = fix(STIM.totes/60);
+rem_pics = rem(STIM.totes,60);
+
+%Now make random list of pic numbers & pair it with a second random list of
+%numbers
+piclist = [repmat(randperm(60)',its_pics,1); randperm(rem_pics)'];
+piclist_hi = piclist(randperm(length(piclist)),:);
+piclist = [piclist piclist_hi];
 
 %Concatenate these into a long list of trial types.
 % trial_types = [l_r counterprobe signal piclist];
 trial_types = [l_r countersignal piclist];
-shuffled = trial_types(randperm(size(trial_types,1)),:);
+shuffled = trial_types(randperm(size(trial_types,1)),:);    
 
 for g = 1:STIM.blocks;
     row = ((g-1)*STIM.trials)+1;
     rend = row+STIM.trials - 1;
     DPT.var.lr(1:STIM.trials,g) = shuffled(row:rend,1);
-    DPT.var.picnum_hi(1:STIM.trials,g) = shuffled(row:rend,4);
-    DPT.var.picnum_lo(1:STIM.trials,g) = shuffled(row:rend,5);
     DPT.var.cprobe(1:STIM.trials,g) = shuffled(row:rend,2);
     DPT.var.signal(1:STIM.trials,g) = shuffled(row:rend,3);
+    DPT.var.picnum_lo(1:STIM.trials,g) = shuffled(row:rend,4);
+    DPT.var.picnum_hi(1:STIM.trials,g) = shuffled(row:rend,5);
+
 end
 
     DPT.data.rt = zeros(STIM.trials, STIM.blocks);
     DPT.data.correct = zeros(STIM.trials, STIM.blocks)-999;
     DPT.data.avg_rt = zeros(STIM.blocks,1);
+    DPT.data.picname_lo = cell(STIM.trials, STIM.blocks);
+    DPT.data.picname_hi = cell(STIM.trials, STIM.blocks);
     DPT.data.info.ID = ID;
-%     DPT.data.info.cond = COND;               %Condtion 1 = Food; Condition 2 = animals
+    DPT.data.info.cond = COND;               %Condtion 1 = Food; Condition 2 = animals
     DPT.data.info.session = SESS;
     DPT.data.info.date = sprintf('%s %2.0f:%02.0f',date,d(4),d(5));
     
@@ -216,11 +235,6 @@ KbName('UnifyKeyNames');
 %border = 20;
 dpr = 10; %radius of dot probe
 
-% STIM.framerect = [border; border; wRect(3)-border; wRect(4)-border];
-
-% This sets 'DrawLine' to draw dashed line.
-% Screen('LineStipple',w,1,5);
-
 %This sets location for L & R image display. Basically chooses a square
 %whose side=1/2 the vertical size of the screen & is vertically centered.
 %The square is then placed 1/10th the width of the screen from the L & R
@@ -233,7 +247,7 @@ STIM.probe(2,1:4) = [wRect(3)*(3/4) - dpr,wRect(4)/2 - dpr, wRect(3)*(3/4) + dpr
 %% Initial screen
 DrawFormattedText(w,'Welcome to the Dot-Probe Task.\nPress any key to continue.','center','center',COLORS.WHITE,[],[],[],1.5);
 Screen('Flip',w);
-% KbWait();
+KbWait();
 Screen('Flip',w);
 WaitSecs(1);
 
@@ -338,6 +352,7 @@ if prac == 1;
     DrawFormattedText(w,'Press any key to continue.','center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
     KbWait();
+    Screen('Flip',w);
     WaitSecs(2);
 end 
   
@@ -579,22 +594,14 @@ global PICS DPT w STIM
         %Get pic # for given trial's hi & low cal food
         pic_hi = DPT.var.picnum_hi(j,block);
         pic_lo = DPT.var.picnum_lo(j,block);
+        DPT.data.picname_lo(j,block) = {getfield(PICS,'in','lo',{pic_lo},'name')};
+        DPT.data.picname_hi(j,block) = {getfield(PICS,'in','hi',{pic_hi},'name')};
+        
         PICS.out(j).raw_hi = imread(getfield(PICS,'in','hi',{pic_hi},'name'));
         PICS.out(j).raw_lo = imread(getfield(PICS,'in','lo',{pic_lo},'name'));
         PICS.out(j).texture_hi = Screen('MakeTexture',w,PICS.out(j).raw_hi);
-        PICS.out(j).texture_lo = Screen('MakeTexture',w,PICS.out(j).raw_lo);
-        
-%         switch DPT.var.trial_type(j,block)
-%             case {1}
-%                 PICS.out(j).raw = imread(getfield(PICS,'in','go',{pic},'name'));
-% %                 %I think this is is covered outside of switch/case
-% %                 PICS.out(j).texture = Screen('MakeTexture',w,PICS.out(j).raw);
-%             case {2}
-%                 PICS.out(j).raw = imread(getfield(PICS,'in','no',{pic},'name'));
-%             case {3}
-%                 PICS.out(j).raw = imread(getfield(PICS,'in','neut',{pic},'name'));
-%         end
+        PICS.out(j).texture_lo = Screen('MakeTexture',w,PICS.out(j).raw_lo);     
     end
-%end
+
 end
 
