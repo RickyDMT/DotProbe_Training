@@ -4,7 +4,8 @@ function DotProbe_Training(varargin)
 
 global KEY COLORS w wRect XCENTER YCENTER PICS STIM DPT trial pahandle
 
-prompt={'SUBJECT ID' 'Condition' 'Session (1, 2, or 3)' 'Practice? 0 or 1'};
+commandwindow;
+prompt={'SUBJECT ID' 'Condition' 'Session (1, 2, 3, or 4)' 'Practice? 0 or 1'};
 defAns={'4444' '1' '1' '0'};
 
 answer=inputdlg(prompt,'Please input subject info',1,defAns);
@@ -24,8 +25,8 @@ prac = str2double(answer{4});
 %     error('Subject ID & Condition code do not match.');
 % end
 
-
-rng(ID); %Seed random number generator with subject ID
+rng_num = ID*SESS;
+rng(rng_num,'twister'); %Seed random number generator with subject ID
 d = clock;
 
 KEY = struct;
@@ -70,6 +71,7 @@ catch
     commandwindow;
     randopics = input('Would you like to continue with a random selection of images? [1 = Yes, 0 = No]');
     if randopics == 1
+        cd(imgdir);
         p = struct;
         p.PicRating.H = dir('Healthy*');
         p.PicRating.U = dir('Unhealthy*');
@@ -174,19 +176,6 @@ end
 
 commandwindow;
 
-%% Sound stuff.
-wave=sin(1:0.25:1000);
-freq=22254;  % change this to change freq of tone
-nrchannels = size(wave,1);
-% Default to auto-selected default output device:
-deviceid = -1;
-% Request latency mode 2, which used to be the best one in our measurement:
-reqlatencyclass = 2; % class 2 empirically the best, 3 & 4 == 2
-% Initialize driver, request low-latency preinit:
-InitializePsychSound(1);
-% Open audio device for low-latency output:
-pahandle = PsychPortAudio('Open', deviceid, [], reqlatencyclass, freq, nrchannels);
-
 %%
 %change this to 0 to fill whole screen
 DEBUG=0;
@@ -222,6 +211,20 @@ end
 %function returns a window "w", and a rect that represents the whole
 %screen. 
 [w, wRect]=Screen('OpenWindow', screenNumber, 0,winRect,32,2);
+
+%% Sound stuff.
+wave=sin(1:0.25:1000);
+freq=22254;  % change this to change freq of tone
+nrchannels = size(wave,1);
+% Default to auto-selected default output device:
+deviceid = -1;
+% Request latency mode 2, which used to be the best one in our measurement:
+reqlatencyclass = 2; % class 2 empirically the best, 3 & 4 == 2
+% Initialize driver, request low-latency preinit:
+InitializePsychSound(1);
+% Open audio device for low-latency output:
+pahandle = PsychPortAudio('Open', deviceid, [], reqlatencyclass, freq, nrchannels);
+% PsychPortAudio('FillBuffer', pahandle, wave);
 
 %%
 %you can set the font sizes and styles here
@@ -323,15 +326,17 @@ if prac == 1;
         [dd, ~, cc] = KbCheck();            %wait for "right" key to be pressed
         if dd == 1 && find(cc) == KEY.right
             break;
-        else
-            FlushEvents();
+%         else
+%             FlushEvents();
         end
     end
+    Screen('Flip',w);
     Screen('Flip',w);
     WaitSecs(1);
     
     %Now do "no go" signal trial. 
     PsychPortAudio('FillBuffer', pahandle, wave);
+
     DrawFormattedText(w,'In some trials you will hear a short tone (a beep).','center','center',COLORS.WHITE,[],[],[],1.2);
     DrawFormattedText(w,'Press any key to hear the tone.','center',wRect(4)-200,COLORS.WHITE);
     Screen('Flip',w);
@@ -354,12 +359,13 @@ if prac == 1;
     KbWait();
     Screen('Flip',w);
     WaitSecs(2);
+
 end 
   
 %% Task
 DrawFormattedText(w,'The Dot Probe Task is about to begin.\n\n\nPress any key to begin the task.','center','center',COLORS.WHITE);
 Screen('Flip',w);
-KbWait([],3);
+KbWait([],2);
 Screen('Flip',w);
 WaitSecs(1.5);
 
@@ -372,13 +378,14 @@ for block = 1:STIM.blocks;
     KbWait();
     
     old = Screen('TextSize',w,80);
-    PsychPortAudio('FillBuffer', pahandle, wave);
+%     PsychPortAudio('FillBuffer', pahandle, wave);
     for trial = 1:STIM.trials;
         [DPT.data.rt(trial,block), DPT.data.correct(trial,block)] = DoDotProbeTraining(trial,block);
         %Wait 500 ms
         Screen('Flip',w);
         WaitSecs(.5);
     end
+    
     Screen('TextSize',w,old);
     %Inter-block info here, re: Display RT, accuracy, etc.
     %Calculate block RT
@@ -476,10 +483,11 @@ end
 
 DrawFormattedText(w,'Thank you for participating\n in the Dot Probe Task!','center','center',COLORS.WHITE);
 Screen('Flip', w);
-WaitSecs(10);
+KbWait([],2);
 
 %Clear everything except data structure
-clearvar -except DPT
+% clearvar -except DPT
+PsychPortAudio('Close',pahandle);
 
 sca
 
